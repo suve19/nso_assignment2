@@ -1,0 +1,93 @@
+---
+- name: Deploy Flask App with Gunicorn and Nginx
+  hosts: webservers
+  become: yes
+  gather_facts: false
+
+  vars:
+    app_user: ubuntu
+    app_dir: /home/ubuntu/flask
+    venv_dir: /home/ubuntu/flask/venv
+
+  tasks:
+    - name: Update APT cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 7200
+
+    - name: Ensure Python and required packages are installed
+      apt:
+        name:
+          - python3
+          - python3-pip
+          - python3-venv
+          - nginx
+        state: present
+
+    - name: Create application directory
+      file:
+        path: "{{ app_dir }}"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0755'
+
+    - name: Create virtual environment
+      command: python3 -m venv "{{ venv_dir }}"
+      args:
+        creates: "{{ venv_dir }}"
+
+    - name: Install Flask, Gunicorn, and Wheel in venv
+      pip:
+        name:
+          - flask
+          - gunicorn
+          - wheel
+        virtualenv: "{{ venv_dir }}"
+        state: latest
+
+    - name: Copy Flask app
+      copy:
+        src: application2.py
+        dest: "{{ app_dir }}/flaskapp.py"
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+
+    - name: Copy WSGI entry point
+      copy:
+        src: wsgi.py
+        dest: "{{ app_dir }}/wsgi.py"
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+
+    - name: Copy Gunicorn systemd service
+      copy:
+        src: flask.service
+        dest: /etc/systemd/system/flask.service
+        mode: '0644'
+
+    - name: Reload systemd to pick up new service
+      systemd:
+        daemon_reload: yes
+
+    - name: Enable and restart Flask systemd service
+      systemd:
+        name: flask.service
+        enabled: yes
+        state: restarted
+
+    - name: Copy Nginx config
+      copy:
+        src: nginx.conf
+        dest: /etc/nginx/conf.d/flask.conf
+        mode: '0644'
+
+    - name: Restart Nginx
+      service:
+        name: nginx
+        state: restarted
+
+
+
+
+
