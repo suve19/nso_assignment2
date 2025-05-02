@@ -87,7 +87,55 @@
         name: nginx
         state: restarted
 
+- hosts: webservers
+  gather_facts: yes
+- hosts: HAproxy
+  become: true
+  vars:
+    haproxy_maxconns: 15000
+    haproxy_backlog: 2
+    haproxy_timeout_q: 400ms
+    haproxy_timoutconnect: 5000ms
+    haproxy_timeoutclient: 5000ms
+    haproxy_timoutserver: 5000ms
+    haproxy_http_timeout: 15s
+    haproxy_balance: leastconn
+    haproxy_frontend_port: 5000
+
+  tasks:
+  - name: Update cache
+    become: yes
+    apt:
+      update_cache: yes
+      cache_valid_time: 7200
+  
+  - name: install Haproxy
+    apt: 
+      name: haproxy
+      state: present
+        
+  - name: copy HAProxy
+    template:
+      src: haproxy.conf
+      dest: "/etc/haproxy/haproxy.cfg"
+
+  - name: restart Haproxy
+    service:
+      name: haproxy
+      state: restarted
 
 
+  - name: haproxy redumentary function test-1
+    uri: url=http://localhost:5000/ return_content=yes
+    register: html_body
+  - debug: msg='{{ html_body.content }}'
 
+  - name: haproxy redumentary function test-2
+    uri: url=http://localhost:5000/ return_content=yes
+    register: html_body
+  - debug: msg='{{ html_body.content }}'
 
+  - name: haproxy redumentary function test-3
+    uri: url=http://localhost:5000/ return_content=yes
+    register: html_body
+  - debug: msg='{{ html_body.content }}'
